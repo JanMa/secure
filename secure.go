@@ -3,6 +3,7 @@ package secure
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"regexp"
 	"strings"
@@ -29,6 +30,7 @@ const (
 
 	ctxDefaultSecureHeaderKey = secureCtxKey("SecureResponseHeader")
 	cspNonceSize              = 16
+	correlationIDHeader       = "X-Correlation-ID"
 )
 
 // SSLHostFunc a type whose pointer is the type of field `SSLHostFunc` of `Options` struct
@@ -63,6 +65,8 @@ type Options struct {
 	STSIncludeSubdomains bool
 	// If STSPreload is set to true, the `preload` flag will be appended to the Strict-Transport-Security header. Default is false.
 	STSPreload bool
+	// CorrelationID add a correlation id header to every request containing a random UUID
+	CorrelationID bool
 	// ContentSecurityPolicy allows the Content-Security-Policy header value to be set with a custom value. Default is "".
 	ContentSecurityPolicy string
 	// ContentSecurityPolicyReportOnly allows the Content-Security-Policy-Report-Only header value to be set with a custom value. Default is "".
@@ -99,6 +103,8 @@ type Options struct {
 	ExpectCTHeader string
 	// SecureContextKey allows a custom key to be specified for context storage.
 	SecureContextKey string
+	// CorrelationIDHeaderName sets the name of the correlation id header. Default is `X-Correlation-ID`.
+	CorrelationIDHeaderName string // nolint: golint
 }
 
 // Secure is a middleware that helps setup a few basic security features. A single secure.Options struct can be
@@ -424,6 +430,25 @@ func (s *Secure) processRequest(w http.ResponseWriter, r *http.Request) (http.He
 	// Expect-CT header.
 	if len(s.opt.ExpectCTHeader) > 0 {
 		responseHeader.Set(expectCTHeader, s.opt.ExpectCTHeader)
+	}
+
+	// CorrelationID header.
+	if s.opt.CorrelationID {
+		cHeader := func() string {
+			if s.opt.CorrelationIDHeaderName != "" {
+				return s.opt.CorrelationIDHeaderName
+			}
+			return correlationIDHeader
+		}()
+		cID := func() string {
+			if len(r.Header.Get(cHeader)) > 0 {
+				return r.Header.Get(cHeader)
+			}
+			return uuid.New().String()
+		}()
+
+		r.Header.Set(cHeader, cID)
+		responseHeader.Set(cHeader, cID)
 	}
 
 	return responseHeader, r, nil

@@ -11,6 +11,9 @@ env:
 
 before_install:
   - GO111MODULE=off go get -u honnef.co/go/tools/cmd/staticcheck
+  - go get -u github.com/codegangsta/negroni
+  - go get -u github.com/alecthomas/gometalinter
+  - go get -u github.com/google/uuid
 
 install:
   - go mod download
